@@ -1,0 +1,53 @@
+name: Verificar y publicar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17,47 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      BASE_PATH: ${{ vars.BASE_PATH || '/videosFurthurr/' }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://furthurr.github.io/videosFurthurr/' }}
+      REQUIRE_SUPABASE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run format:check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Desplegar
+        id: deployment
+        uses: actions/deploy-pages@v4

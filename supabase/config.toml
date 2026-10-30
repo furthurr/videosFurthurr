@@ -1,0 +1,4 @@
+project_id = "furthurr-videos"
+
+[functions.manage-video]
+verify_jwt = false
