@@ -20,6 +20,7 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
     video_links: [],
   };
   let published = false;
+  let uploadedMp4 = false;
   await page.addInitScript(
     ({ userId }) => {
       // Sesión ficticia local. No representa credenciales ni valida OAuth real.
@@ -56,6 +57,20 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
       current = { ...current, ...payload.p_data };
       return route.fulfill({ status: 204 });
     }
+    if (
+      url.pathname.startsWith("/storage/v1/object/drafts/") &&
+      route.request().method() === "POST"
+    ) {
+      expect(url.pathname).toMatch(/\.mp4$/);
+      expect(route.request().postData()).toContain("Content-Type: video/mp4");
+      uploadedMp4 = true;
+      return route.fulfill({ json: { Key: url.pathname } });
+    }
+    if (
+      url.pathname === "/storage/v1/object/drafts" &&
+      route.request().method() === "DELETE"
+    )
+      return route.fulfill({ json: [] });
     if (url.pathname === "/functions/v1/manage-video") {
       if (route.request().postDataJSON().operation === "status")
         return route.fulfill({ json: { state: "failed" } });
@@ -88,6 +103,11 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
   ).toBeVisible();
   await page.getByRole("button", { name: /Borrador original/ }).click();
   await page.getByLabel("Título", { exact: true }).fill("Nueva demo");
+  await page.getByLabel("Video WebM o MP4").setInputFiles({
+    name: "demo.MP4",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("archivo simulado"),
+  });
   await expect(
     page.getByRole("button", { name: "Publicar video" }),
   ).toBeDisabled();
@@ -96,6 +116,8 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
   await page.getByRole("button", { name: "Publicar video" }).click();
   await expect(page.getByRole("status")).toContainText("Video publicado");
   expect(current.title).toBe("Nueva demo");
+  expect(uploadedMp4).toBe(true);
+  expect(current.video_path).toMatch(/\.mp4$/);
   expect(published).toBe(true);
   await page.getByRole("button", { name: /Nueva demo/ }).click();
   await expect(page.getByText(/el último despliegue falló/)).toBeVisible();

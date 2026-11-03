@@ -13,6 +13,7 @@ import {
   routeVideo,
   safeUrl,
   shareUrl,
+  videoFormat,
   type Video,
 } from "./lib";
 import "./styles.css";
@@ -215,14 +216,17 @@ function Watch({ id }: { id: string }) {
               poster={asset(video.poster_path)}
               onError={() => setPlayError(true)}
             >
-              <source src={asset(video.video_path)} type="video/webm" />
+              <source
+                src={asset(video.video_path)}
+                type={videoFormat(video.video_path)?.mime}
+              />
               Tu navegador no permite reproducir este video.
             </video>
           </div>
           {playError && (
             <p className="notice error" role="alert">
               No se pudo reproducir el archivo. Prueba con un navegador
-              actualizado compatible con el códec de este WebM.
+              actualizado compatible con el formato y el códec de este video.
             </p>
           )}
           <div className="player-caption">
@@ -245,7 +249,10 @@ function Watch({ id }: { id: string }) {
                 ))}
               </select>
             </label>
-            <span>WebM · {formatDuration(video.duration)}</span>
+            <span>
+              {videoFormat(video.video_path)?.label || "Video"} ·{" "}
+              {formatDuration(video.duration)}
+            </span>
           </div>
         </section>
         <aside className="details">

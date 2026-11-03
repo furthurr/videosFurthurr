@@ -126,6 +126,20 @@ test("fallo de red visible y recuperación al reintentar", async ({ page }) => {
   await expect(page.getByRole("heading", { name: video.title })).toBeVisible();
 });
 
+test("el reproductor identifica videos MP4 sin cambiar los WebM existentes", async ({
+  page,
+}) => {
+  await page.route("https://demo.supabase.co/rest/v1/videos*", (route) =>
+    route.fulfill({ json: { ...video, video_path: "owner/id/demo.mp4" } }),
+  );
+  await page.goto(`./watch/?v=${video.id}`);
+  await expect(page.locator("video source")).toHaveAttribute(
+    "type",
+    "video/mp4",
+  );
+  await expect(page.locator(".player-caption")).toContainText("MP4 · 1:51");
+});
+
 test("reproduce un WebM real generado en el navegador", async ({ page }) => {
   await page.goto("./");
   const encoded = await page.evaluate(async () => {

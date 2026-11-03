@@ -41,7 +41,8 @@ export function dynamicUrl(id: string) {
   return `${location.origin}${base}watch/?v=${encodeURIComponent(id)}`;
 }
 export function formatDuration(seconds: number | null) {
-  if (seconds == null || !Number.isFinite(seconds)) return "WebM";
+  if (seconds == null || !Number.isFinite(seconds))
+    return "Duración desconocida";
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
@@ -67,9 +68,16 @@ export function routeVideo(path: string, search: string) {
     null
   );
 }
+export function videoFormat(path: string) {
+  const extension = path.toLowerCase().match(/\.(webm|mp4)$/)?.[1];
+  if (extension === "webm")
+    return { extension, mime: "video/webm", label: "WebM" };
+  if (extension === "mp4")
+    return { extension, mime: "video/mp4", label: "MP4" };
+  return null;
+}
 export function validateVideo(file: File) {
-  if (!file.name.toLowerCase().endsWith(".webm"))
-    return "Selecciona un archivo WebM.";
+  if (!videoFormat(file.name)) return "Selecciona un archivo WebM o MP4.";
   if (file.size > 40 * 1024 * 1024)
     return "El límite inicial es de 40 MB por video.";
   if (!file.size) return "El archivo está vacío.";

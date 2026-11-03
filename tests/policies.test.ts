@@ -42,6 +42,15 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  await database.exec(
+    await readFile(
+      new URL(
+        "../supabase/migrations/202611020001_allow_mp4.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
   await database.exec(`insert into public.admin_users values ('${admin}');`);
   await as("service_role");
   await database.exec(`insert into public.videos(id,title,video_path,poster_path,status,published_at) values
@@ -57,6 +66,25 @@ afterAll(async () => {
 describe.sequential(
   "políticas PostgreSQL reales en una instancia local en memoria",
   () => {
+    it("permite MP4 y conserva WebM, imágenes y límites en ambos buckets", async () => {
+      await as("service_role");
+      const { rows } = await database.query(
+        "select id, file_size_limit, allowed_mime_types from storage.buckets order by id",
+      );
+      expect(rows).toEqual(
+        ["drafts", "published"].map((id) => ({
+          id,
+          file_size_limit: 41943040,
+          allowed_mime_types: [
+            "video/webm",
+            "video/mp4",
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+          ],
+        })),
+      );
+    });
     it("un visitante solo ve publicaciones y sus enlaces", async () => {
       await as("anon");
       expect(

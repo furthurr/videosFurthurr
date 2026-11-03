@@ -10,6 +10,7 @@ import {
   safeUrl,
   socialReady,
   validateVideo,
+  videoFormat,
   type Video,
 } from "../lib";
 import { extractPoster } from "../poster";
@@ -345,7 +346,7 @@ function Editor({
       }
     }
     if (!video && !file) {
-      onError("Selecciona un archivo WebM.");
+      onError("Selecciona un archivo WebM o MP4.");
       return;
     }
     if (
@@ -401,14 +402,19 @@ function Editor({
         const metadata = await extractPoster(file);
         duration = metadata.duration;
         if (!poster) generated = metadata.poster;
-        videoPath = `${userId}/${id}/${crypto.randomUUID()}.webm`;
+        const format = videoFormat(file.name)!;
+        videoPath = `${userId}/${id}/${crypto.randomUUID()}.${format.extension}`;
         setStage("Subiendo video… No cierres esta pestaña.");
         const { error } = await db!.storage
           .from("drafts")
-          .upload(videoPath, file, {
-            contentType: "video/webm",
-            upsert: false,
-          });
+          .upload(
+            videoPath,
+            new File([file], file.name, { type: format.mime }),
+            {
+              contentType: format.mime,
+              upsert: false,
+            },
+          );
         if (error) throw error;
         uploaded.push(videoPath);
       }
@@ -524,10 +530,10 @@ function Editor({
           <small>Separadas por comas. Hasta 12 etiquetas.</small>
         </label>
         <label className="field">
-          Video WebM
+          Video WebM o MP4
           <input
             type="file"
-            accept=".webm,video/webm"
+            accept=".webm,.mp4,video/webm,video/mp4"
             disabled={published}
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
