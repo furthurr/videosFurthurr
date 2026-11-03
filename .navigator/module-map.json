@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "generated_at": "2026-11-03T02:41:16Z",
+  "root": ".",
+  "modules": [
+    {
+      "id": "frontend",
+      "name": "Frontend React",
+      "path": "src",
+      "responsibility": "Aplicación pública, reproducción de vídeos y panel de administración.",
+      "kind": "app",
+      "tech": ["typescript", "react", "css"],
+      "entrypoints": ["src/main.tsx", "src/pages/Admin.tsx"],
+      "depends_on": ["supabase-integration"],
+      "tags": ["web", "ui", "admin"]
+    },
+    {
+      "id": "supabase-integration",
+      "name": "Cliente compartido",
+      "path": "src/lib.ts",
+      "responsibility": "Cliente Supabase, modelo Video, validaciones, URLs y operaciones remotas compartidas.",
+      "kind": "lib",
+      "tech": ["typescript", "supabase-js"],
+      "entrypoints": ["src/lib.ts"],
+      "depends_on": [],
+      "tags": ["data", "client"]
+    },
+    {
+      "id": "supabase-backend",
+      "name": "Backend Supabase",
+      "path": "supabase",
+      "responsibility": "Persistencia PostgreSQL, RLS, Storage y operaciones administrativas de la Edge Function.",
+      "kind": "service",
+      "tech": ["sql", "typescript", "supabase"],
+      "entrypoints": ["supabase/migrations", "supabase/functions/manage-video/index.ts"],
+      "depends_on": [],
+      "tags": ["database", "storage", "api"]
+    },
+    {
+      "id": "static-publisher",
+      "name": "Generador social",
+      "path": "scripts",
+      "responsibility": "Genera rutas estáticas, metadatos sociales y el manifiesto de publicaciones.",
+      "kind": "service",
+      "tech": ["javascript", "node"],
+      "entrypoints": ["scripts/generate-pages.mjs", "scripts/social.mjs"],
+      "depends_on": ["supabase-backend"],
+      "tags": ["build", "static"]
+    },
+    {
+      "id": "delivery",
+      "name": "Entrega continua",
+      "path": ".github/workflows",
+      "responsibility": "Ejecuta verificaciones, construye el sitio y lo publica en GitHub Pages.",
+      "kind": "other",
+      "tech": ["yaml", "github-actions"],
+      "entrypoints": [".github/workflows/pages.yml"],
+      "depends_on": ["frontend", "static-publisher"],
+      "tags": ["ci", "deployment"]
+    },
+    {
+      "id": "unit-tests",
+      "name": "Pruebas unitarias",
+      "path": "tests",
+      "responsibility": "Comprueba generación, utilidades, políticas y comportamiento social.",
+      "kind": "other",
+      "tech": ["typescript", "vitest"],
+      "entrypoints": ["tests"],
+      "depends_on": ["frontend", "supabase-integration"],
+      "tags": ["test"]
+    },
+    {
+      "id": "e2e-tests",
+      "name": "Pruebas end-to-end",
+      "path": "e2e",
+      "responsibility": "Valida los flujos públicos y administrativos en navegador.",
+      "kind": "other",
+      "tech": ["typescript", "playwright"],
+      "entrypoints": ["e2e"],
+      "depends_on": ["frontend"],
+      "tags": ["test", "browser"]
+    }
+  ]
+}
