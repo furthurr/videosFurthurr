@@ -101,10 +101,14 @@ export async function shareUrl(video: Video) {
     ? `${location.origin}${base}v/${video.id}/`
     : dynamicUrl(video.id);
 }
-export async function manageVideo(operation: string, id: string) {
+export async function manageVideo(
+  operation: string,
+  id: string,
+  posterPath?: string,
+) {
   if (!db) throw new Error("Supabase no está configurado.");
   const { data, error } = await db.functions.invoke("manage-video", {
-    body: { operation, id },
+    body: { operation, id, ...(posterPath ? { poster_path: posterPath } : {}) },
   });
   if (error)
     throw new Error(

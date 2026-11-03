@@ -115,11 +115,20 @@ Deno.serve(async (request) => {
   if (accessError || !allowed)
     return respond({ error: "Acceso denegado." }, 403);
   try {
-    const { operation, id } = await request.json();
+    const {
+      operation,
+      id,
+      poster_path: replacementPosterPath,
+    } = await request.json();
     if (
-      !["publish", "unpublish", "delete", "deploy", "status"].includes(
-        operation,
-      ) ||
+      ![
+        "publish",
+        "unpublish",
+        "delete",
+        "deploy",
+        "status",
+        "replace-poster",
+      ].includes(operation) ||
       typeof id !== "string" ||
       !/^[a-f\d-]{36}$/i.test(id)
     )
@@ -138,6 +147,64 @@ Deno.serve(async (request) => {
     const paths = [video.video_path, video.poster_path];
     if (paths.some((path) => !path.startsWith(`${user.id}/${id}/`)))
       return respond({ error: "Ruta de archivo inválida." }, 400);
+    if (operation === "replace-poster") {
+      if (video.status !== "published")
+        return respond(
+          { error: "Solo se puede reemplazar la portada de una publicación." },
+          409,
+        );
+      if (
+        typeof replacementPosterPath !== "string" ||
+        !new RegExp(
+          `^${user.id}/${id}/[a-f\\d-]+\\.(?:jpe?g|png|webp)$`,
+          "i",
+        ).test(replacementPosterPath)
+      )
+        return respond({ error: "Ruta de portada inválida." }, 400);
+      if (replacementPosterPath === video.poster_path)
+        return respond(
+          { error: "La portada seleccionada ya está publicada." },
+          400,
+        );
+
+      const { error: copyError } = await admin.storage
+        .from("drafts")
+        .copy(replacementPosterPath, replacementPosterPath, {
+          destinationBucket: "published",
+        });
+      if (copyError) throw copyError;
+      const { data: updatedVideo, error: updateError } = await admin
+        .from("videos")
+        .update({ poster_path: replacementPosterPath })
+        .eq("id", id)
+        .eq("status", "published")
+        .select("id")
+        .single();
+      if (updateError || !updatedVideo) {
+        await admin.storage.from("published").remove([replacementPosterPath]);
+        throw updateError || new Error("La publicación ya no está disponible.");
+      }
+      const { error: removeError } = await admin.storage
+        .from("published")
+        .remove([video.poster_path]);
+      if (removeError) {
+        await admin
+          .from("videos")
+          .update({ poster_path: video.poster_path })
+          .eq("id", id)
+          .eq("status", "published");
+        await admin.storage.from("published").remove([replacementPosterPath]);
+        throw removeError;
+      }
+      let deployment: string;
+      try {
+        deployment = await requestDeployment();
+      } catch {
+        deployment =
+          "Pendiente: no se pudo contactar con GitHub. Reintenta actualizar la previsualización.";
+      }
+      return respond({ ok: true, deployment });
+    }
     if (operation === "status") return respond(await deploymentState());
     if (operation === "publish" && video.status !== "published") {
       const copied: string[] = [];

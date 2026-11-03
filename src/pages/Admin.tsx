@@ -357,23 +357,31 @@ function Editor({
       onError("La portada debe ser JPG, PNG o WebP y pesar como máximo 5 MB.");
       return;
     }
-    const parsedLinks = links
-      .split("\n")
-      .filter((line) => line.trim())
-      .map((line) => {
-        const split = line.indexOf("|");
-        return {
-          label: line.slice(0, split).trim(),
-          url: line.slice(split + 1).trim(),
-        };
-      });
-    if (
-      parsedLinks.length > 20 ||
-      parsedLinks.some(
-        (link) => !link.label || link.label.length > 100 || !safeUrl(link.url),
-      )
-    ) {
-      onError("Usa como máximo 20 recursos con el formato Nombre | https://…");
+    const parsedLinks: { label: string; url: string }[] = [];
+    for (const [index, line] of links.split("\n").entries()) {
+      if (!line.trim()) continue;
+      const position = `Recursos relacionados, línea ${index + 1}: `;
+      const split = line.indexOf("|");
+      if (split === -1) {
+        onError(`${position}usa el formato Nombre | https://…`);
+        return;
+      }
+      const label = line.slice(0, split).trim();
+      const url = line.slice(split + 1).trim();
+      if (!label || label.length > 100) {
+        onError(`${position}el nombre debe tener entre 1 y 100 caracteres.`);
+        return;
+      }
+      if (!safeUrl(url)) {
+        onError(
+          `${position}escribe una URL https:// o http:// después de «|».`,
+        );
+        return;
+      }
+      parsedLinks.push({ label, url });
+    }
+    if (parsedLinks.length > 20) {
+      onError("Usa como máximo 20 recursos.");
       return;
     }
     const parsedTags = [
@@ -396,6 +404,8 @@ function Editor({
     try {
       let videoPath = video?.video_path || "";
       let posterPath = video?.poster_path || "";
+      let replacementPosterPath: string | null = null;
+      let publishedDeployment: string | undefined;
       let duration = video?.duration || null;
       let generated: Blob | null = null;
       if (file) {
@@ -426,16 +436,18 @@ function Editor({
             : image.type === "image/webp"
               ? "webp"
               : "jpg";
-        posterPath = `${userId}/${id}/${crypto.randomUUID()}.${extension}`;
+        const nextPosterPath = `${userId}/${id}/${crypto.randomUUID()}.${extension}`;
         setStage("Subiendo portada…");
         const { error } = await db!.storage
           .from("drafts")
-          .upload(posterPath, image, {
+          .upload(nextPosterPath, image, {
             contentType: image.type,
             upsert: false,
           });
         if (error) throw error;
-        uploaded.push(posterPath);
+        uploaded.push(nextPosterPath);
+        if (published) replacementPosterPath = nextPosterPath;
+        else posterPath = nextPosterPath;
       }
       if (!posterPath)
         throw new Error(
@@ -457,6 +469,16 @@ function Editor({
         p_links: parsedLinks,
       });
       if (error) throw error;
+      if (published && replacementPosterPath) {
+        setStage("Publicando portada…");
+        const result = await manageVideo(
+          "replace-poster",
+          id,
+          replacementPosterPath,
+        );
+        posterPath = replacementPosterPath;
+        publishedDeployment = result.deployment;
+      }
       saved = true;
       const { data, error: fetchError } = await db!
         .from("videos")
@@ -472,7 +494,9 @@ function Editor({
       }
       if (published) {
         try {
-          const result = await manageVideo("deploy", id);
+          const result = publishedDeployment
+            ? { deployment: publishedDeployment }
+            : await manageVideo("deploy", id);
           if (result.deployment?.startsWith("Pendiente"))
             onError(
               "Los cambios están guardados, pero la actualización social está pendiente. Usa «Actualizar previsualización».",
@@ -548,10 +572,13 @@ function Editor({
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
-            disabled={published}
             onChange={(e) => setPoster(e.target.files?.[0] || null)}
           />
-          <small>JPG, PNG o WebP. Máximo 5 MB.</small>
+          <small>
+            JPG, PNG o WebP. Máximo 5 MB.
+            {published &&
+              " Puedes cambiar la portada sin retirar la publicación."}
+          </small>
         </label>
         <label className="field">
           Recursos relacionados

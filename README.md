@@ -97,7 +97,7 @@ Hay una reconciliación programada aproximadamente cada 30 minutos como respaldo
 - El enlace `/watch/?v=UUID` funciona de inmediato, sin build nuevo. Los cambios de datos se consultan desde Supabase cada vez que se abre la vista.
 - La página `/v/UUID/` y sus metadatos Open Graph se generan con GitHub Actions. El botón compartir usa ese enlace **solo cuando el manifest del despliegue coincide con la revisión del video**; mientras tanto usa el dinámico.
 - Mientras una publicación está abierta en el panel, su estado social se consulta cada 15 segundos. Si aún no está lista, también se comprueba el último workflow de la rama: un fallo se muestra como tal, sin afirmar que la publicación del video haya fallado.
-- Para reemplazar archivos de una publicación, retírala primero. Editar título, descripción, etiquetas y recursos no requiere retirarla.
+- Para reemplazar el video de una publicación, retírala primero. La portada puede cambiarse desde el editor sin retirar el video; se actualiza la copia pública y se solicita una nueva previsualización social.
 - No hay un botón de descarga, pero un video público sigue siendo descargable por quien tenga acceso al archivo.
 
 Los recursos se escriben como `Nombre | https://URL`, uno por línea. La descripción es texto, no HTML. No se permite contenido activo arbitrario.

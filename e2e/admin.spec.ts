@@ -21,6 +21,8 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
   };
   let published = false;
   let uploadedMp4 = false;
+  let uploadedPoster = false;
+  let replacedPoster = false;
   await page.addInitScript(
     ({ userId }) => {
       // Sesión ficticia local. No representa credenciales ni valida OAuth real.
@@ -61,9 +63,14 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
       url.pathname.startsWith("/storage/v1/object/drafts/") &&
       route.request().method() === "POST"
     ) {
-      expect(url.pathname).toMatch(/\.mp4$/);
-      expect(route.request().postData()).toContain("Content-Type: video/mp4");
-      uploadedMp4 = true;
+      if (url.pathname.endsWith(".mp4")) {
+        expect(route.request().postData()).toContain("Content-Type: video/mp4");
+        uploadedMp4 = true;
+      } else {
+        expect(url.pathname).toMatch(/\.png$/);
+        expect(route.request().postData()).toContain("Content-Type: image/png");
+        uploadedPoster = true;
+      }
       return route.fulfill({ json: { Key: url.pathname } });
     }
     if (
@@ -72,12 +79,24 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
     )
       return route.fulfill({ json: [] });
     if (url.pathname === "/functions/v1/manage-video") {
-      if (route.request().postDataJSON().operation === "status")
+      const payload = route.request().postDataJSON();
+      if (payload.operation === "status")
         return route.fulfill({ json: { state: "failed" } });
+      if (payload.operation === "replace-poster") {
+        expect(payload.id).toBe(id);
+        expect(payload.poster_path).toMatch(
+          new RegExp(`^${userId}/${id}/.+\\.png$`),
+        );
+        replacedPoster = true;
+        current = { ...current, poster_path: payload.poster_path };
+        return route.fulfill({
+          json: { ok: true, deployment: "Generación social solicitada." },
+        });
+      }
       expect(route.request().headers().authorization).toBe(
         "Bearer fake-local-access",
       );
-      expect(route.request().postDataJSON()).toEqual({
+      expect(payload).toEqual({
         operation: "publish",
         id,
       });
@@ -121,4 +140,16 @@ test("administrador edita un borrador y publica con una solicitud protegida", as
   expect(published).toBe(true);
   await page.getByRole("button", { name: /Nueva demo/ }).click();
   await expect(page.getByText(/el último despliegue falló/)).toBeVisible();
+  await expect(page.getByLabel("Portada")).toBeEnabled();
+  await page.getByLabel("Portada").setInputFiles({
+    name: "nueva-portada.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("imagen simulada"),
+  });
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Cambios guardados" }),
+  ).toBeVisible();
+  expect(replacedPoster).toBe(true);
+  expect(current.poster_path).toMatch(/\.png$/);
 });
