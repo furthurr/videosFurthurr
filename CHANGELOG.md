@@ -1,5 +1,13 @@
 # Historial de cambios
 
+## [v0.1.1] - 2026-11-03
+
+### Correcciones
+
+- Permitir cambiar la portada de videos publicados desde el panel de administración.
+- Sincronizar la nueva portada con el bucket público mediante una operación protegida.
+- Añadir cobertura E2E para el cambio de portada publicada.
+
 ## [v0.1.0] - 2026-10-29
 
 ### Funcionalidades
